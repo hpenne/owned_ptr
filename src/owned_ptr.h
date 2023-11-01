@@ -14,26 +14,32 @@ class dep_ptr;
 template<typename T>
 class owned_ptr {
 public:
-    explicit owned_ptr(T &&object) : _object{Ptr(new T{std::move(object)}, &owned_ptr<T>::delete_t)} {
+    // ToDo: Needs a make_owned with forwarding
+
+    explicit owned_ptr(T &&object) : _block{Ptr{new Block{0, T{std::move(object)}}, &owned_ptr<T>::deleter}} {
     }
 
-    ~owned_ptr() {
-        assert(_ref_count == 0);
-    }
-
-    operator T*() {
-        return _object.get();
+    operator T*() { // NOLINT
+        return &_block->object;
     }
 
 private:
-    using Deleter = void(*)(T*);
-    using Ptr = std::unique_ptr<T, Deleter>;
+    struct Block {
+        size_t ref_count{0};
+        T object;
 
-    size_t _ref_count{0};
-    Ptr _object;
+        ~Block() {
+            assert(ref_count == 0);
+        }
+    };
 
-    static void delete_t(T* t) {
-        t->~T();
+    using Deleter = void(*)(Block*);
+    using Ptr = std::unique_ptr<Block, Deleter>;
+
+    Ptr _block;
+
+    static void deleter(Block* b) {
+        b->~Block();
     }
 
     friend class dep_ptr<T>;
@@ -43,21 +49,42 @@ template<typename T>
 class dep_ptr
 {
 public:
-    explicit dep_ptr(owned_ptr<T>& owned) : _owned{owned}, _object{owned._object.get()} {
-        _owned._ref_count++;
+    explicit dep_ptr(owned_ptr<T>& owned) : _block{*owned._block.get()} {
+        _block.ref_count++;
+    }
+
+    dep_ptr(const dep_ptr& other) : _block{other._block} {
+        _block.ref_count++;
+    }
+
+    // ToDo: Consider setting _block to nullptr on moves
+
+    dep_ptr(dep_ptr&& other) noexcept : _block{other._block} {
+        _block.ref_count++;
+    }
+
+    dep_ptr& operator=(const dep_ptr& other) {
+        _block.ref_count--;
+        _block = other;
+        _block.ref_count++;
+    }
+
+    dep_ptr& operator=(dep_ptr&& other) noexcept {
+        _block.ref_count--;
+        _block = other;
+        _block.ref_count++;
     }
 
     ~dep_ptr() {
-        _owned._ref_count--;
+        _block.ref_count--;
     }
 
-    operator T*() {
-        return _object;
+    operator T*() { // NOLINT
+        return &_block.object;
     }
 
 private:
-    owned_ptr<T>& _owned;
-    T* _object;
+    typename owned_ptr<T>::Block& _block;
 };
 
 #endif //OWNED_PTR_OWNED_PTR_H
