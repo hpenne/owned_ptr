@@ -10,6 +10,10 @@ FetchContent_MakeAvailable(gtest)
 add_executable(
         unit_tests
         owned_ptr_test.cpp
+        Foo.cpp
+        Foo.h
+        Bar.cpp
+        Bar.h
 )
 
 target_link_libraries(unit_tests

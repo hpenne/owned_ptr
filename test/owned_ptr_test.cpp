@@ -4,6 +4,8 @@
 
 #include "owned_ptr.h"
 
+#include "Bar.h"
+
 #include <memory>
 #include <string>
 
@@ -18,4 +20,8 @@ TEST(Basics, create)
     const string* s2 = dep_ptr<string>{foo};
     ASSERT_EQ(*s1, "Foo");
     ASSERT_EQ(*s2, "Foo");
+}
+
+TEST(Basics, rule_of_zero) {
+    Bar bar;
 }

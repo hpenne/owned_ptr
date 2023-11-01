@@ -14,26 +14,27 @@ class dep_ptr;
 template<typename T>
 class owned_ptr {
 public:
-    explicit owned_ptr(T &&object) : _data{std::make_unique<Data>(std::move(object))} {
+    explicit owned_ptr(T &&object) : _object{Ptr(new T{std::move(object)}, &owned_ptr<T>::delete_t)} {
     }
 
     ~owned_ptr() {
-        assert(_data->_ref_count == 0);
+        assert(_ref_count == 0);
     }
 
     operator T*() {
-        return &_data->_object;
+        return _object.get();
     }
 
 private:
-    struct Data {
-        size_t _ref_count{};
-        T _object;
+    using Deleter = void(*)(T*);
+    using Ptr = std::unique_ptr<T, Deleter>;
 
-        explicit Data(T &&object) : _ref_count{0}, _object(std::move(object)) {}
-    };
+    size_t _ref_count{0};
+    Ptr _object;
 
-    std::unique_ptr<Data> _data;
+    static void delete_t(T* t) {
+        t->~T();
+    }
 
     friend class dep_ptr<T>;
 };
@@ -42,20 +43,21 @@ template<typename T>
 class dep_ptr
 {
 public:
-    explicit dep_ptr(owned_ptr<T>& owned) : _owned{owned} {
-        _owned._data->_ref_count++;
+    explicit dep_ptr(owned_ptr<T>& owned) : _owned{owned}, _object{owned._object.get()} {
+        _owned._ref_count++;
     }
 
     ~dep_ptr() {
-        _owned._data->_ref_count--;
+        _owned._ref_count--;
     }
 
     operator T*() {
-        return &_owned._data->_object;
+        return _object;
     }
 
 private:
     owned_ptr<T>& _owned;
+    T* _object;
 };
 
 #endif //OWNED_PTR_OWNED_PTR_H
