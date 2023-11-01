@@ -24,4 +24,5 @@ TEST(Basics, create)
 
 TEST(Basics, rule_of_zero) {
     Bar bar;
+    auto b = make_owned<int>(1);
 }

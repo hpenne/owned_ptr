@@ -14,13 +14,20 @@ class dep_ptr;
 template<typename T>
 class owned_ptr {
 public:
-    // ToDo: Needs a make_owned with forwarding
+    // ToDo: A get_dep could be useful, especially if error handling strategies are introduced
 
     explicit owned_ptr(T &&object) : _block{Ptr{new Block{0, T{std::move(object)}}, &owned_ptr<T>::deleter}} {
     }
 
     operator T*() { // NOLINT
         return &_block->object;
+    }
+
+    template<class... Args>
+    static inline auto make(Args&&... args)
+    {
+        auto p = new Block{0, T(std::forward<Args>(args)...)};
+        return owned_ptr(Ptr{p, &owned_ptr<T>::deleter});
     }
 
 private:
@@ -38,12 +45,20 @@ private:
 
     Ptr _block;
 
+    explicit owned_ptr(Ptr&& block) : _block{std::move(block)} {}
+
     static void deleter(Block* b) {
         b->~Block();
     }
 
     friend class dep_ptr<T>;
 };
+
+template<class T, class... Args>
+inline auto make_owned(Args&&... args)
+{
+    return owned_ptr<T>::make(std::forward<Args>(args)...);
+}
 
 template<typename T>
 class dep_ptr
