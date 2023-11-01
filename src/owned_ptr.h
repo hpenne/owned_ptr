@@ -31,6 +31,10 @@ public:
         return &_block->object;
     }
 
+    T* operator->() { // NOLINT
+        return &_block->object;
+    }
+
     template<class... Args>
     static inline auto make(Args &&... args) {
         auto p = new Block{0, T(std::forward<Args>(args)...)};
@@ -40,6 +44,8 @@ public:
     auto make_dep() {
         return dep_ptr<T, ErrorHandler>{*this};
     }
+
+    size_t num_deps() { return _block->ref_count; }
 
 private:
     struct Block {
@@ -115,6 +121,10 @@ public:
         if constexpr (ErrorHandler::reset_moved_from_dep_ptr) {
             ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
         }
+        return &_block->object;
+    }
+
+    T* operator->() { // NOLINT
         return &_block->object;
     }
 

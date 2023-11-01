@@ -12,8 +12,12 @@ class Foo;
 class Bar {
 public:
     Bar();
+    explicit Bar(int value);
+
+    int get_value() { return _value; }
 
 private:
+    int _value{};
     owned_ptr<Foo> _foo;
 };
 
