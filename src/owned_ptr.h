@@ -180,7 +180,7 @@ public:
         }
         _block->ref_count--;
         if (!_block->ref_count) {
-            delete _block;
+            delete[] _block;
         }
     }
 
@@ -250,7 +250,7 @@ public:
         }
         _block->ref_count--;
         if (!_block->ref_count) {
-            delete _block;
+            delete[] _block;
         }
     }
 
