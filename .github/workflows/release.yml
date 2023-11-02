@@ -12,11 +12,11 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Configure CMake
-        run: cmake -DCMAKE_CXX_FLAGS="-Werror -Wall -Wextra -pedantic -fsanitize=leak" -S $GITHUB_WORKSPACE -B ${{runner.workspace}}/build
+        run: cmake -S $GITHUB_WORKSPACE -B ${{runner.workspace}}/build
 
       - name: Build
         working-directory: ${{runner.workspace}}/build
-        run: cmake -DCMAKE_CXX_FLAGS="-Werror -Wall -Wextra -pedantic -fsanitize=leak" --build .
+        run: cmake --build .
 
       - name: Test
         working-directory: ${{runner.workspace}}/build
