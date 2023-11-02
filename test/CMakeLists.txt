@@ -1,7 +1,7 @@
 include(FetchContent)
 FetchContent_Declare(
         googletest
-        DOWNLOAD_EXTRACT_TIMESTAMP
+        DOWNLOAD_EXTRACT_TIMESTAMP ON
         # Specify the commit you depend on and update it regularly.
         URL https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz
 )
