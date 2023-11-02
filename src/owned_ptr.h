@@ -81,6 +81,10 @@ private:
             ErrorHandler::check_condition(ref_count == 0, "One or more remaining dep_ptr when deleting owned_ptr");
             assert(ref_count == 0);
         }
+
+        bool has_owner() {
+            return ref_count >= owner_marker;
+        }
     };
 
     Block* _block;
@@ -141,19 +145,25 @@ public:
 
     operator T *() { // NOLINT
         ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        ErrorHandler::check_condition(_block->has_owner(), "owner has been deleted");
         return &_block->object;
     }
 
     operator const T *() const { // NOLINT
         ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        ErrorHandler::check_condition(_block->has_owner(), "owner has been deleted");
         return &_block->object;
     }
 
     T *operator->() { // NOLINT
+        ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        ErrorHandler::check_condition(_block->has_owner(), "owner has been deleted");
         return &_block->object;
     }
 
     const T *operator->() const { // NOLINT
+        ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        ErrorHandler::check_condition(_block->has_owner(), "owner has been deleted");
         return &_block->object;
     }
 
@@ -204,11 +214,14 @@ public:
    }
 
     operator const T *() const { // NOLINT
-        ErrorHandler::check_condition(_block, "dep_ptr_const has been moved from");
+        ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        ErrorHandler::check_condition(_block->has_owner(), "owner has been deleted");
         return &_block->object;
     }
 
     const T *operator->() const { // NOLINT
+        ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        ErrorHandler::check_condition(_block->has_owner(), "owner has been deleted");
         return &_block->object;
     }
 
