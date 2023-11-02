@@ -122,7 +122,7 @@ private:
     void delete_block() {
         auto deleter = *reinterpret_cast<Deleter *>(_block + sizeof(size_t));
         deleter(_block);
-        delete[] _block;
+        // delete[] _block;
         _block = nullptr;
     }
 
