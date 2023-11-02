@@ -31,7 +31,7 @@ public:
     owned_ptr(const owned_ptr& other) = delete;
     owned_ptr& operator=(const owned_ptr& other) = delete;
 
-    owned_ptr(owned_ptr&& other) : _block(other._block) {
+    owned_ptr(owned_ptr&& other) noexcept : _block(other._block) {
         other._block = nullptr;
     }
 
@@ -44,7 +44,7 @@ public:
         if (_block) {
             ref_count() = ref_count() & ~owner_marker;
             if (!ref_count()) {
-                delete_block(_block);
+                delete_block();
             }
         }
     }
@@ -91,7 +91,7 @@ private:
 
     struct Block {
         size_t ref_count{};
-        Deleter deleter;
+        Deleter deleter; //NOLINT
         T object;
 
         ~Block() {
@@ -116,11 +116,10 @@ private:
     static char *new_block(Args &&... args) {
         char *block = new char[block_size()];
         new(block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T(std::forward<Args>(args)...)};
-        Block* b = reinterpret_cast<Block*>(block);
         return block;
     }
 
-    void delete_block(char *block) {
+    void delete_block() {
         auto deleter = *reinterpret_cast<Deleter *>(_block + sizeof(size_t));
         deleter(_block);
         delete[] _block;
