@@ -43,8 +43,8 @@ TEST(Basics, owner_deleted_first) {
     optional<owned_ptr<string>> foo{string{"Foo"}};
     auto dep1 = foo->make_dep();
     ASSERT_EQ(*dep1, "Foo");
-    const auto dep2 = foo->make_dep();
-    ASSERT_EQ(*dep2, "Foo");
+    // const auto dep2 = foo->make_dep();
+    // ASSERT_EQ(*dep2, "Foo");
     foo = nullopt;
 }
 

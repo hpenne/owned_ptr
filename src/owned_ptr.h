@@ -44,7 +44,8 @@ public:
         if (_block) {
             ref_count() = ref_count() & ~owner_marker;
             if (!ref_count()) {
-                delete_block();
+                delete_block(_block);
+                _block = nullptr;
             }
         }
     }
@@ -119,11 +120,10 @@ private:
         return block;
     }
 
-    void delete_block() {
-        auto deleter = *reinterpret_cast<Deleter *>(_block + sizeof(size_t));
-        deleter(_block);
-        delete[] _block;
-        _block = nullptr;
+    static void delete_block(char* block) {
+        auto deleter = *reinterpret_cast<Deleter *>(block + sizeof(size_t));
+        deleter(block);
+        delete[] block;
     }
 
     static void swap(owned_ptr &lhs, owned_ptr &rhs) {
@@ -180,7 +180,8 @@ public:
         }
         _block->ref_count--;
         if (!_block->ref_count) {
-            delete[] _block;
+            owned_ptr<T, ErrorHandler>::delete_block(reinterpret_cast<char*>(_block));
+            _block = nullptr;
         }
     }
 
@@ -250,7 +251,8 @@ public:
         }
         _block->ref_count--;
         if (!_block->ref_count) {
-            delete[] _block;
+            owned_ptr<T, ErrorHandler>::delete_block(reinterpret_cast<char*>(_block));
+            _block = nullptr;
         }
     }
 
