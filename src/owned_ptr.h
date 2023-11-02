@@ -24,37 +24,54 @@ class dep_ptr_const;
 template<typename T, class ErrorHandler = owned_ptr_error_handler>
 class owned_ptr {
 public:
-    explicit owned_ptr(T &&object) : _block{
-            new Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T{std::move(object)}}} {
+    explicit owned_ptr(T &&object) : _block{new char[block_size()]} {
+        new(_block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T{std::move(object)}};
+    }
+
+    owned_ptr(const owned_ptr& other) = delete;
+    owned_ptr& operator=(const owned_ptr& other) = delete;
+
+    owned_ptr(owned_ptr&& other) : _block(other._block) {
+        other._block = nullptr;
+    }
+
+    owned_ptr& operator=(owned_ptr&& other){
+        swap(*this, other);
+        return *this;
     }
 
     ~owned_ptr() {
-        _block->ref_count = _block->ref_count & ~owner_marker;
-        if (!_block->ref_count) {
-            auto deleter = _block->deleter;
-            deleter(_block);
+        if (_block) {
+            ref_count() = ref_count() & ~owner_marker;
+            if (!ref_count()) {
+                delete_block(_block);
+            }
         }
     }
 
     operator T *() { // NOLINT
-        return &_block->object;
+        ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
+        return &reinterpret_cast<Block *>(_block)->object;
     }
 
     operator const T *() const { // NOLINT
-        return &_block->object;
+        ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
+        return &reinterpret_cast<Block *>(_block)->object;
     }
 
     T *operator->() { // NOLINT
-        return &_block->object;
+        ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
+        return &reinterpret_cast<Block *>(_block)->object;
     }
 
     const T *operator->() const { // NOLINT
-        return &_block->object;
+        ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
+        return &reinterpret_cast<Block *>(_block)->object;
     }
 
     template<class... Args>
     static inline auto make(Args &&... args) {
-        return owned_ptr(new Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T(std::forward<Args>(args)...)});
+        return owned_ptr(new_block(std::forward<Args>(args)...));
     }
 
     auto make_dep() {
@@ -65,12 +82,12 @@ public:
         return dep_ptr_const<T, ErrorHandler>{*this};
     }
 
-    [[nodiscard]] size_t num_deps() const { return _block->ref_count & ~owner_marker; }
+    [[nodiscard]] size_t num_deps() const { return ref_count() & ~owner_marker; }
 
 private:
     static constexpr size_t owner_marker{1ull << (sizeof(size_t) * 8u - 1u)};
     struct Block;
-    using Deleter = void (*)(Block *);
+    using Deleter = void (*)(char *);
 
     struct Block {
         size_t ref_count{};
@@ -87,13 +104,38 @@ private:
         }
     };
 
-    Block* _block;
+    char *_block;
 
-    explicit owned_ptr(Block* block) : _block{block} {}
+    explicit owned_ptr(char *block) : _block{block} {}
 
-    static void deleter(Block *b) {
-        b->~Block();
+    static void deleter(char *block) {
+        reinterpret_cast<Block *>(block)->~Block();
     }
+
+    template<class... Args>
+    static char *new_block(Args &&... args) {
+        char *block = new char[block_size()];
+        new(block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T(std::forward<Args>(args)...)};
+        Block* b = reinterpret_cast<Block*>(block);
+        return block;
+    }
+
+    void delete_block(char *block) {
+        auto deleter = *reinterpret_cast<Deleter *>(_block + sizeof(size_t));
+        deleter(_block);
+        delete[] _block;
+        _block = nullptr;
+    }
+
+    static void swap(owned_ptr &lhs, owned_ptr &rhs) {
+        std::swap(lhs._block, rhs._block);
+    }
+
+    static size_t block_size() { return sizeof(Block); }
+
+    size_t &ref_count() const {
+        return *reinterpret_cast<size_t *>(_block);
+    };
 
     friend class dep_ptr<T, ErrorHandler>;
 
@@ -108,7 +150,9 @@ inline auto make_owned(Args &&... args) {
 template<typename T, class ErrorHandler>
 class dep_ptr {
 public:
-    explicit dep_ptr(owned_ptr<T, ErrorHandler> &owned) : _block{owned._block} {
+    explicit dep_ptr(owned_ptr<T, ErrorHandler> &owned) : _block{
+            reinterpret_cast<typename owned_ptr<T, ErrorHandler>::Block *>(owned._block)} {
+        ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
         _block->ref_count++;
     }
 
@@ -127,8 +171,7 @@ public:
     }
 
     dep_ptr &operator=(dep_ptr &&other) noexcept {
-        dep_ptr tmp(std::move(other));
-        swap(*this, tmp);
+        swap(*this, other);
         return *this;
     }
 
@@ -138,8 +181,7 @@ public:
         }
         _block->ref_count--;
         if (!_block->ref_count) {
-            auto deleter = _block->deleter;
-            deleter(_block);
+            delete _block;
         }
     }
 
@@ -170,15 +212,17 @@ public:
 private:
     typename owned_ptr<T, ErrorHandler>::Block *_block;
 
-    static void swap(dep_ptr &a, dep_ptr &b) {
-        std::swap(a._block, b._block);
+    static void swap(dep_ptr &lhs, dep_ptr &rhs) {
+        std::swap(lhs._block, rhs._block);
     }
 };
 
 template<typename T, class ErrorHandler>
 class dep_ptr_const {
 public:
-    explicit dep_ptr_const(const owned_ptr<T, ErrorHandler> &owned) : _block{owned._block} {
+    explicit dep_ptr_const(const owned_ptr<T, ErrorHandler> &owned) : _block{
+            reinterpret_cast<typename owned_ptr<T, ErrorHandler>::Block *>(owned._block)} {
+        ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
         _block->ref_count++;
     }
 
@@ -197,8 +241,7 @@ public:
     }
 
     dep_ptr_const &operator=(dep_ptr_const &&other) noexcept {
-        dep_ptr_const tmp(std::move(other));
-        swap(*this, tmp);
+        swap(*this, other);
         return *this;
     }
 
@@ -208,10 +251,9 @@ public:
         }
         _block->ref_count--;
         if (!_block->ref_count) {
-            auto deleter = _block->deleter;
-            deleter(_block);
+            delete _block;
         }
-   }
+    }
 
     operator const T *() const { // NOLINT
         ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
@@ -228,8 +270,8 @@ public:
 private:
     typename owned_ptr<T, ErrorHandler>::Block *_block;
 
-    static void swap(dep_ptr_const &a, dep_ptr_const &b) {
-        std::swap(a._block, b._block);
+    static void swap(dep_ptr_const &lhs, dep_ptr_const &rhs) {
+        std::swap(lhs._block, rhs._block);
     }
 };
 

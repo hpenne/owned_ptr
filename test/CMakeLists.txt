@@ -10,8 +10,9 @@ FetchContent_MakeAvailable(googletest)
 add_executable(
         unit_tests
         owned_ptr_test.cpp
-        # Foo.cpp
-        # Bar.cpp
+        error_handling_tests.cpp
+        Foo.cpp
+        Bar.cpp
 )
 
 target_link_libraries(unit_tests
@@ -24,4 +25,5 @@ target_include_directories(unit_tests
         ../src
 )
 
-add_test(NAME tests COMMAND unit_tests)
+add_test(NAME basics COMMAND unit_tests)
+add_test(NAME errors COMMAND error_handling_tests)
