@@ -60,7 +60,7 @@ public:
         return dep_ptr_const<T, ErrorHandler>{*this};
     }
 
-    size_t num_deps() const { return _block->ref_count; }
+    [[nodiscard]] size_t num_deps() const { return _block->ref_count; }
 
 private:
     struct Block {
