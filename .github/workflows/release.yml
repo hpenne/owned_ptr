@@ -1,0 +1,23 @@
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure CMake
+        run: cmake -DCMAKE_CXX_FLAGS="-Werror -Wall -Wextra -pedantic -fsanitize=leak" -S $GITHUB_WORKSPACE -B ${{runner.workspace}}/build
+
+      - name: Build
+        working-directory: ${{runner.workspace}}/build
+        run: cmake -DCMAKE_CXX_FLAGS="-Werror -Wall -Wextra -pedantic -fsanitize=leak" --build .
+
+      - name: Test
+        working-directory: ${{runner.workspace}}/build
+        run: GTEST_OUTPUT=xml:test-results/ GTEST_COLOR=1 ctest -V
