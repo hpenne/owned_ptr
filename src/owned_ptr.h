@@ -14,11 +14,14 @@ struct owned_ptr_error_handler {
         assert(condition);
     }
 
-    static constexpr bool reset_moved_from_dep_ptr{false};
+    static constexpr bool reset_moved_from_dep_ptr{true};
 };
 
 template<typename T, class ErrorHandler>
 class dep_ptr;
+
+template<typename T, class ErrorHandler>
+class dep_ptr_const;
 
 template<typename T, class ErrorHandler = owned_ptr_error_handler>
 class owned_ptr {
@@ -31,7 +34,15 @@ public:
         return &_block->object;
     }
 
-    T* operator->() { // NOLINT
+    operator const T *() const { // NOLINT
+        return &_block->object;
+    }
+
+    T *operator->() { // NOLINT
+        return &_block->object;
+    }
+
+    const T *operator->() const { // NOLINT
         return &_block->object;
     }
 
@@ -45,7 +56,11 @@ public:
         return dep_ptr<T, ErrorHandler>{*this};
     }
 
-    size_t num_deps() { return _block->ref_count; }
+    auto make_dep() const {
+        return dep_ptr_const<T, ErrorHandler>{*this};
+    }
+
+    size_t num_deps() const { return _block->ref_count; }
 
 private:
     struct Block {
@@ -70,6 +85,7 @@ private:
     }
 
     friend class dep_ptr<T, ErrorHandler>;
+    friend class dep_ptr_const<T, ErrorHandler>;
 };
 
 template<class T, class... Args>
@@ -124,14 +140,84 @@ public:
         return &_block->object;
     }
 
-    T* operator->() { // NOLINT
+    operator const T *() const { // NOLINT
+        if constexpr (ErrorHandler::reset_moved_from_dep_ptr) {
+            ErrorHandler::check_condition(_block, "dep_ptr has been moved from");
+        }
+        return &_block->object;
+    }
+
+    T *operator->() { // NOLINT
+        return &_block->object;
+    }
+
+    const T *operator->() const { // NOLINT
         return &_block->object;
     }
 
 private:
     typename owned_ptr<T, ErrorHandler>::Block *_block;
 
-    static void swap(dep_ptr& a, dep_ptr& b) {
+    static void swap(dep_ptr &a, dep_ptr &b) {
+        std::swap(a._block, b._block);
+    }
+};
+
+template<typename T, class ErrorHandler>
+class dep_ptr_const {
+public:
+    explicit dep_ptr_const(const owned_ptr<T, ErrorHandler> &owned) : _block{owned._block.get()} {
+        _block->ref_count++;
+    }
+
+    dep_ptr_const(const dep_ptr_const &other) : _block{other._block} {
+        _block->ref_count++;
+    }
+
+    dep_ptr_const &operator=(const dep_ptr_const &other) {
+        dep_ptr_const tmp(other);
+        swap(*this, tmp);
+        return *this;
+    }
+
+    dep_ptr_const(dep_ptr_const &&other) noexcept: _block{other._block} {
+        if constexpr (ErrorHandler::reset_moved_from_dep_ptr) {
+            other._block = nullptr;
+        } else {
+            _block->ref_count++;
+        }
+    }
+
+    dep_ptr_const &operator=(dep_ptr_const &&other) noexcept {
+        dep_ptr_const tmp(std::move(other));
+        swap(*this, tmp);
+        return *this;
+    }
+
+    ~dep_ptr_const() {
+        if constexpr (ErrorHandler::reset_moved_from_dep_ptr) {
+            if (!_block) {
+                return;
+            }
+        }
+        _block->ref_count--;
+    }
+
+    operator const T *() const { // NOLINT
+        if constexpr (ErrorHandler::reset_moved_from_dep_ptr) {
+            ErrorHandler::check_condition(_block, "dep_ptr_const has been moved from");
+        }
+        return &_block->object;
+    }
+
+    const T *operator->() const { // NOLINT
+        return &_block->object;
+    }
+
+private:
+    typename owned_ptr<T, ErrorHandler>::Block *_block;
+
+    static void swap(dep_ptr_const &a, dep_ptr_const &b) {
         std::swap(a._block, b._block);
     }
 };

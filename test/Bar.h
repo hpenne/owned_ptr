@@ -14,7 +14,7 @@ public:
     Bar();
     explicit Bar(int value);
 
-    int get_value() { return _value; }
+    int get_value() const { return _value; }
 
 private:
     int _value{};
