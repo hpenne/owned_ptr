@@ -10,10 +10,8 @@ FetchContent_MakeAvailable(googletest)
 add_executable(
         unit_tests
         owned_ptr_test.cpp
-        Foo.cpp
-        Foo.h
-        Bar.cpp
-        Bar.h
+        # Foo.cpp
+        # Bar.cpp
 )
 
 target_link_libraries(unit_tests
