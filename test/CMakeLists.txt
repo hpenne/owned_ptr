@@ -13,6 +13,7 @@ add_executable(
         error_handling_tests.cpp
         Foo.cpp
         Bar.cpp
+        lifetime_tests.cpp
 )
 
 target_link_libraries(unit_tests
