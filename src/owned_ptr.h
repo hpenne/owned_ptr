@@ -24,22 +24,44 @@ class dep_ptr_const;
 template<typename T, class ErrorHandler = owned_ptr_error_handler>
 class owned_ptr {
 public:
+    /// Creates a new handle and owned object, by moving an existing object of the target type.
+    /// Takes the same parameters as the target type's constructor, moves the arguments,
+    /// and constructs the target object in-place.
+    template<class... Args>
+    explicit owned_ptr(Args &&... args) : _block{new char[block_size()]} {
+        new(_block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T{std::forward<Args>(args)...}};
+    }
+
+    /// Creates a new handle and owned object, by copying an existing object of the target type.
+    /// \param object The object to copy.
+    explicit owned_ptr(const T &object) : _block{new char[block_size()]} {
+        new(_block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T{object}};
+    }
+
+    /// Creates a new handle and owned object, by moving an existing object of the target type.
+    /// \param object The object to move from.
     explicit owned_ptr(T &&object) : _block{new char[block_size()]} {
         new(_block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T{std::move(object)}};
     }
 
+    /// Copy constructor (deleted)
     owned_ptr(const owned_ptr& other) = delete;
+
+    /// Copy assignment operator (deleted)
     owned_ptr& operator=(const owned_ptr& other) = delete;
 
+    /// Move constructor
     owned_ptr(owned_ptr&& other) noexcept : _block(other._block) {
         other._block = nullptr;
     }
 
+    /// Move assignment
     owned_ptr& operator=(owned_ptr&& other){
         swap(*this, other);
         return *this;
     }
 
+    /// Destructor.
     ~owned_ptr() {
         if (_block) {
             ref_count() = ref_count() & ~owner_marker;
@@ -48,6 +70,19 @@ public:
                 _block = nullptr;
             }
         }
+    }
+
+    template<class... Args>
+    static inline auto make(Args &&... args) {
+        return owned_ptr(new_block(std::forward<Args>(args)...));
+    }
+
+    auto make_dep() {
+        return dep_ptr<T, ErrorHandler>{*this};
+    }
+
+    auto make_dep() const {
+        return dep_ptr_const<T, ErrorHandler>{*this};
     }
 
     operator T *() { // NOLINT
@@ -68,19 +103,6 @@ public:
     const T *operator->() const { // NOLINT
         ErrorHandler::check_condition(_block, "owned_ptr has been moved from");
         return &reinterpret_cast<Block *>(_block)->object;
-    }
-
-    template<class... Args>
-    static inline auto make(Args &&... args) {
-        return owned_ptr(new_block(std::forward<Args>(args)...));
-    }
-
-    auto make_dep() {
-        return dep_ptr<T, ErrorHandler>{*this};
-    }
-
-    auto make_dep() const {
-        return dep_ptr_const<T, ErrorHandler>{*this};
     }
 
     [[nodiscard]] size_t num_deps() const { return ref_count() & ~owner_marker; }
