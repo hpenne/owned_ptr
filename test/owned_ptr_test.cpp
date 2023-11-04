@@ -96,7 +96,7 @@ TEST(Basics, rule_of_zero) {
 }
 
 TEST(Basics, arrow) {
-    auto bar = owned_ptr<Bar>::make(42);
+    auto bar = owned_ptr<Bar>(42);
     ASSERT_EQ(42, bar->get_value());
     auto dep1 = bar.make_dep();
     ASSERT_EQ(42, dep1->get_value());
@@ -105,7 +105,7 @@ TEST(Basics, arrow) {
 }
 
 TEST(Basics, arrow_const) {
-    const auto bar = owned_ptr<Bar>::make(42);
+    const auto bar = owned_ptr<Bar>(42);
     ASSERT_EQ(42, bar->get_value());
     auto dep1 = bar.make_dep();
     ASSERT_EQ(42, dep1->get_value());

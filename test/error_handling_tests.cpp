@@ -40,14 +40,14 @@ using dep = dep_ptr<string, throwing_error_handler>;
 using dep_const = dep_ptr_const<string, throwing_error_handler>;
 
 TEST(ErrorHandling, owner_created_and_moved_when_first_is_used_then_error_is_detected) {
-    auto first = ptr::make("foo");
+    auto first = ptr("foo");
     [[maybe_unused]] auto second{std::move(first)};
     ASSERT_THROW(use(*first), FailureDetected);
     ASSERT_THROW(use(first->length()), FailureDetected);
 }
 
 TEST(ErrorHandling, owner_and_dep_created_then_owner_deleted_when_dep_is_referenced_then_error_is_detected) {
-    auto foo = make_optional(ptr::make("foo"));
+    auto foo = make_optional(ptr("foo"));
     auto dep = foo->make_dep();
     const auto dep_const = foo->make_dep();
     foo = nullopt;
@@ -59,7 +59,7 @@ TEST(ErrorHandling, owner_and_dep_created_then_owner_deleted_when_dep_is_referen
 
 TEST(ErrorHandling, const_owner_and_dep_created_then_owner_deleted_when_dep_is_referenced_then_error_is_detected) {
     auto dep = [] {
-        const auto foo = ptr::make("foo");
+        const auto foo = ptr("foo");
         return foo.make_dep();
     }();
     ASSERT_THROW(use(*dep), FailureDetected);
@@ -67,7 +67,7 @@ TEST(ErrorHandling, const_owner_and_dep_created_then_owner_deleted_when_dep_is_r
 }
 
 TEST(ErrorHandling, dep_is_moved_from_when_dep_is_dereferenced_then_error_is_detected) {
-    auto foo = ptr::make("foo");
+    auto foo = ptr("foo");
     auto dep = foo.make_dep();
     auto dep2{std::move(dep)};
     ASSERT_THROW(use(*dep), FailureDetected);
@@ -75,7 +75,7 @@ TEST(ErrorHandling, dep_is_moved_from_when_dep_is_dereferenced_then_error_is_det
 }
 
 TEST(ErrorHandling, const_dep_is_moved_from_when_dep_is_dereferenced_then_error_is_detected) {
-    const auto foo = ptr::make("foo");
+    const auto foo = ptr("foo");
     auto dep = foo.make_dep();
     auto dep2{std::move(dep)};
     ASSERT_THROW(use(*dep), FailureDetected);

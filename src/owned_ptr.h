@@ -62,19 +62,18 @@ public:
     }
 
     /// Destructor.
+    /// The owned object is destroyed, but the "block" on the heap that contains
+    /// the reference count, deleter function and the object's memory is retained
+    /// until the last dependency is destroyed.
     ~owned_ptr() {
         if (_block) {
             ref_count() = ref_count() & ~owner_marker;
+            get_deleter(_block)(_block); // ToDo: Unit tests
             if (!ref_count()) {
                 delete_block(_block);
                 _block = nullptr;
             }
         }
-    }
-
-    template<class... Args>
-    static inline auto make(Args &&... args) {
-        return owned_ptr(new_block(std::forward<Args>(args)...));
     }
 
     auto make_dep() {
@@ -108,8 +107,6 @@ public:
     [[nodiscard]] size_t num_deps() const { return ref_count() & ~owner_marker; }
 
 private:
-    static constexpr size_t owner_marker{1ull << (sizeof(size_t) * 8u - 1u)};
-    struct Block;
     using Deleter = void (*)(char *);
 
     struct Block {
@@ -117,34 +114,29 @@ private:
         Deleter deleter; //NOLINT
         T object;
 
-        ~Block() {
-            ErrorHandler::check_condition(ref_count == 0, "One or more remaining dep_ptr when deleting owned_ptr");
-            assert(ref_count == 0);
-        }
-
         bool has_owner() {
             return ref_count >= owner_marker;
         }
     };
+
+    /// This is a bit mask for the most significant bit of the reference count.
+    /// It is set when the owned_ptr handle exists.
+    static constexpr size_t owner_marker{1ull << (sizeof(size_t) * 8u - 1u)};
 
     char *_block;
 
     explicit owned_ptr(char *block) : _block{block} {}
 
     static void deleter(char *block) {
+        // ToDo: Consider if we need to destroy only the T here
         reinterpret_cast<Block *>(block)->~Block();
     }
 
-    template<class... Args>
-    static char *new_block(Args &&... args) {
-        char *block = new char[block_size()];
-        new(block) Block{owner_marker, &owned_ptr<T, ErrorHandler>::deleter, T(std::forward<Args>(args)...)};
-        return block;
+    static Deleter get_deleter(char* block) {
+        return *reinterpret_cast<Deleter *>(block + sizeof(size_t));
     }
 
     static void delete_block(char* block) {
-        auto deleter = *reinterpret_cast<Deleter *>(block + sizeof(size_t));
-        deleter(block);
         delete[] block;
     }
 
@@ -165,7 +157,7 @@ private:
 
 template<class T, class... Args>
 inline auto make_owned(Args &&... args) {
-    return owned_ptr<T, owned_ptr_error_handler>::make(std::forward<Args>(args)...);
+    return owned_ptr<T, owned_ptr_error_handler>(std::forward<Args>(args)...);
 }
 
 template<typename T, class ErrorHandler>
