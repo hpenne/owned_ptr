@@ -23,6 +23,16 @@ TEST(Basics, create_and_deref) {
     ASSERT_EQ(*dep2, "Foo");
 }
 
+TEST(Basics, create_from_copy_and_deref) {
+    const string s{"Foo"};
+    auto foo = make_owned<string>(s);
+    ASSERT_EQ(*foo, "Foo");
+    auto dep1 = foo.make_dep();
+    ASSERT_EQ(*dep1, "Foo");
+    const auto dep2 = foo.make_dep();
+    ASSERT_EQ(*dep2, "Foo");
+}
+
 TEST(Basics, create_and_deref_const) {
     const owned_ptr<string> foo{string{"Foo"}};
     ASSERT_EQ(*foo, "Foo");

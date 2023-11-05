@@ -59,7 +59,7 @@ public:
     }
 
     /// Move assignment
-    owned_ptr &operator=(owned_ptr &&other) {
+    owned_ptr &operator=(owned_ptr &&other) noexcept {
         swap(*this, other);
         return *this;
     }
@@ -71,7 +71,7 @@ public:
     ~owned_ptr() {
         if (_storage) {
             ref_count() = ref_count() & ~owner_marker;
-            get_deleter(_storage)(_storage); // ToDo: Unit tests
+            get_deleter(_storage)(_storage);
             if (!ref_count()) {
                 delete_block(_storage);
             }
@@ -113,7 +113,7 @@ private:
 
     struct Control {
         size_t ref_count{};
-        Deleter deleter; //NOLINT
+        Deleter deleter{}; //NOLINT
 
         bool has_owner() {
             return ref_count >= owner_marker;
@@ -126,17 +126,15 @@ private:
 
     char *_storage;
 
-    explicit owned_ptr(char *storage) : _storage{storage} {}
-
     static void deleter(char *storage) {
         get_target(storage).~T();
     }
 
-    static Control &get_control(char *storage) {
+    static Control &get_control(const char *storage) {
         return *reinterpret_cast<Control *>(storage);
     }
 
-    static T &get_target(char *storage) {
+    static T &get_target(const char *storage) {
         return *reinterpret_cast<T *>(storage + sizeof(Control));
     }
 
