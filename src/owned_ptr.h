@@ -24,7 +24,7 @@ class dep_ptr_const;
 template<typename T, class ErrorHandler = owned_ptr_error_handler>
 class owned_ptr {
 public:
-    /// Creates a new handle and owned object, by moving an existing object of the target type.
+    /// Creates a new handle and owned object.
     /// Takes the same parameters as the target type's constructor, moves the arguments,
     /// and constructs the target object in-place.
     template<class... Args>
@@ -78,10 +78,12 @@ public:
         }
     }
 
+    /// Creates a dependency pointer
     auto make_dep() {
         return dep_ptr<T, ErrorHandler>{*this};
     }
 
+    /// Creates a dependency pointer
     auto make_dep() const {
         return dep_ptr_const<T, ErrorHandler>{*this};
     }
@@ -106,6 +108,7 @@ public:
         return &get_target(_storage);
     }
 
+    /// Returns the number of dependencies
     [[nodiscard]] size_t num_deps() const { return ref_count() & ~owner_marker; }
 
 private:
@@ -130,11 +133,11 @@ private:
         get_target(storage).~T();
     }
 
-    static Control &get_control(const char *storage) {
+    static Control &get_control(char *storage) {
         return *reinterpret_cast<Control *>(storage);
     }
 
-    static T &get_target(const char *storage) {
+    static T &get_target(char *storage) {
         return *reinterpret_cast<T *>(storage + sizeof(Control));
     }
 
