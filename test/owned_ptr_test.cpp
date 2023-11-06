@@ -7,7 +7,6 @@
 #include "Bar.h"
 
 #include <memory>
-#include <optional>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -50,12 +49,10 @@ TEST(Basics, move_assign_and_deref) {
 }
 
 TEST(Basics, owner_deleted_first) {
-    optional<owned_ptr<string>> foo{string{"Foo"}};
+    auto foo = make_unique<owned_ptr<string>>("Foo");
     auto dep1 = foo->make_dep();
     ASSERT_EQ(*dep1, "Foo");
-    // const auto dep2 = foo->make_dep();
-    // ASSERT_EQ(*dep2, "Foo");
-    foo = nullopt;
+    foo = nullptr;
 }
 
 TEST(Basics, special_member_functions) {

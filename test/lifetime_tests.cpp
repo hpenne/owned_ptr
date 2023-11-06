@@ -4,8 +4,6 @@
 
 #include "owned_ptr.h"
 
-#include <optional>
-
 #include <gtest/gtest.h>
 
 using namespace std;
@@ -25,26 +23,26 @@ struct Lifetime : public testing::Test {
 };
 
 TEST_F(Lifetime, create_and_destroy) {
-    optional<owned_ptr<Target>> t = make_owned<Target>();
+    auto t = make_unique<owned_ptr<Target>>(make_owned<Target>());
     ASSERT_FALSE(Target::destroyed);
-    t = nullopt;
+    t = nullptr;
     ASSERT_TRUE(Target::destroyed);
 }
 
 TEST_F(Lifetime, owner_destroyed_before_dep) {
-    optional<owned_ptr<Target>> t = make_owned<Target>();
+    auto t = make_unique<owned_ptr<Target>>(make_owned<Target>());
     auto dep = t->make_dep();
     ASSERT_FALSE(Target::destroyed);
-    t = nullopt;
+    t = nullptr;
     ASSERT_TRUE(Target::destroyed);
 }
 
 TEST_F(Lifetime, dep_destroyed_before_owner) {
-    optional<owned_ptr<Target>> t = make_owned<Target>();
+    auto t = make_unique<owned_ptr<Target>>(make_owned<Target>());
     {
         auto dep = t->make_dep();
     }
     ASSERT_FALSE(Target::destroyed);
-    t = nullopt;
+    t = nullptr;
     ASSERT_TRUE(Target::destroyed);
 }

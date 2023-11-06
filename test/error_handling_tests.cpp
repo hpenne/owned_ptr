@@ -8,7 +8,6 @@
 
 #include <exception>
 #include <memory>
-#include <optional>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -47,10 +46,10 @@ TEST(ErrorHandling, owner_created_and_moved_when_first_is_used_then_error_is_det
 }
 
 TEST(ErrorHandling, owner_and_dep_created_then_owner_deleted_when_dep_is_referenced_then_error_is_detected) {
-    auto foo = make_optional(ptr("foo"));
+    auto foo = make_unique<ptr>("foo");
     auto dep = foo->make_dep();
     const auto dep_const = foo->make_dep();
-    foo = nullopt;
+    foo = nullptr;
     ASSERT_THROW(use(*dep), FailureDetected);
     ASSERT_THROW(use(dep->length()), FailureDetected);
     ASSERT_THROW(use(*dep_const), FailureDetected);
