@@ -1,0 +1,77 @@
+= `owned_ptr` - the missing C++ smart pointer?
+
+== Why
+
+C++ has two smart pointer classes, `shared_ptr` and `unique_ptr`,
+both of which are great.
+
+`shared_ptr` allows shared ownership,
+and uses internal reference counting to destroy the object only when all "handle" objects that refer to it are destroyed.
+It also has some support for multiple threads through atomic reference counting.
+This gives it some runtime overhead.
+Furthermore, each handle object is the size of two pointers and the internal control block also has two pointers' worth of overhead.
+
+`unique_ptr` is for exclusive ownership.
+It has no run time overhead and (mostly) no memory overhead,
+and it has great ownership semantics because the code makes it very obvious who owns the object and when it will be destroyed.
+
+Some programmers prefer `shared_ptr` for everything,
+while others frown upon that and advocate that one should always use `unique_ptr` where possible,
+because of the extra overhead of ´shared_ptr` and the superior semantics of `unique_ptr`.
+
+Both of these are important points, and I tend to agree.
+
+However, there are two problems with `unique_ptr` that make this a little more complicated.
+
+First, `unique_ptr` is not "rule of zero" friendly.
+The destructor of the type contained by the `unique_ptr` must be known when the destructor of the `unique_ptr` is invoked.
+If you have a class "A" with a `unique_ptr<B>` member and no user defined destructor,
+then the compiler will generate a default destructor for you.
+This will happen in the header containing "A",
+which means that this header must include the header for "B".
+
+If you try to forward declare "B" then compilation will fail.
+You can fix this by declaring a destructor for "A" in the header for "A" and implementing it in the source file,
+but that violates "rule of zero" and you will then need to declare/define all the other four special member functions as well.
+
+That is a lot of boilerplate code just for wanting to use `unique_ptr`.
+Interestingly, `shared_ptr` does not have this problem.
+
+You can avoid this by using a custom deleter,
+but it is a little more complicated (and the handle object size will increase by the of one pointer).
+This is kind of what `shared_ptr` does behind the scenes.
+
+The second, more serious issue is memory safety.
+
+Remember how `shared_ptr` ensured that the object was not destroyed until every reference to it was gone.
+`unique_ptr` has no such features,
+and any dependencies to the object from other users will use a simple pointer or reference.
+This leaves the door wide open for use-after-free errors, where the object is destroyed while such pointers or references still exist elsewhere in your object graph.
+This happens more often than one would think,
+and use-after-free is a big source of security vulnerabilities.
+
+All this makes `shared_ptr` seem more attractive than first thought, but when you think about it what it actually shows is that there is a need for third kind of smart pointer that sits between the two:
+One that has better performance than `shared_ptr`, semantics that are as good as `unique_ptr`, but the memory safety and "rule-of-zero" properties of `shared_ptr`.
+
+This is a library for such a smart pointer.
+
+== The class
+
+This library defines a smart pointer named `owned_ptr`.
+This is a handle object (one pointer in size) that points to a block on the heap containing the owned object, a reference count and a deleter function (to make the class "rule-of-zero" friendly).
+
+From this you can create `dep_ptr` instances,
+which are the handle objects used for non-owning users of the object (dependencies).
+There is also a `dep_ptr_const` which is created if the `owned_ptr` is const.
+
+The destructor of the owned object is destroyed when the `owned_ptr` handle object is destroyed,
+but the block (which also contains the reference count) is not deleted until the last `dep_ptr(_const)` is also destroyed.
+Any attempt to access the object using a dependency handle object after the `owned_ptr` was destroyed is trapped,
+which make uses of these classes safe against "use-after-free".
+
+The size of the handle objects is a single pointer,
+so this is more memory efficient than `shared_ptr`.
+It is also much faster,
+as it does not use atomics for reference counting.
+
+It has much better memory safety than `unique_ptr`, and it allows "rule-of-zero" with forward declared classes.
