@@ -13,6 +13,8 @@ struct owned_ptr_error_handler {
         (void) reason;
         assert(condition);
     }
+
+    static constexpr bool reset_when_moved_from{true};
 };
 
 template<typename T, class ErrorHandler>
@@ -133,11 +135,11 @@ private:
         get_target(storage).~T();
     }
 
-    static Control &get_control(char *storage) {
+    static Control &get_control(char *storage) { // NOLINT
         return *reinterpret_cast<Control *>(storage);
     }
 
-    static T &get_target(char *storage) {
+    static T &get_target(char *storage) { // NOLINT
         return *reinterpret_cast<T *>(storage + sizeof(Control));
     }
 
@@ -193,11 +195,20 @@ public:
     }
 
     dep_ptr(dep_ptr &&other) noexcept: _storage{other._storage} {
-        other._storage = nullptr;
+        if (ErrorHandler::reset_when_moved_from) {
+            other._storage = nullptr;
+        } else {
+            Owner::get_control(_storage).ref_count++;
+        }
     }
 
     dep_ptr &operator=(dep_ptr &&other) noexcept {
-        swap(*this, other);
+        if (ErrorHandler::reset_when_moved_from) {
+            swap(*this, other);
+        } else if (this != &other) {
+            this->_storage = other._storage;
+            Owner::get_control(_storage).ref_count++;
+        }
         return *this;
     }
 
@@ -265,11 +276,20 @@ public:
     }
 
     dep_ptr_const(dep_ptr_const &&other) noexcept: _storage{other._storage} {
-        other._storage = nullptr;
+        if (ErrorHandler::reset_when_moved_from) {
+            other._storage = nullptr;
+        } else {
+            Owner::get_control(_storage).ref_count++;
+        }
     }
 
     dep_ptr_const &operator=(dep_ptr_const &&other) noexcept {
-        swap(*this, other);
+        if (ErrorHandler::reset_when_moved_from) {
+            swap(*this, other);
+        } else if (this != &other) {
+            this->_storage = other._storage;
+            Owner::get_control(_storage).ref_count++;
+        }
         return *this;
     }
 

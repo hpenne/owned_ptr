@@ -14,6 +14,7 @@ add_executable(
         Foo.cpp
         Bar.cpp
         lifetime_tests.cpp
+        error_handling_no_reset_on_move.cpp
 )
 
 target_link_libraries(unit_tests
