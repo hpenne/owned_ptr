@@ -56,7 +56,7 @@ TEST(Basics, owner_deleted_first) {
 }
 
 TEST(Basics, special_member_functions) {
-    owned_ptr<string> foo{string{"Foo"}};
+    owned_ptr<string> foo{"Foo"};
     owned_ptr<string> foo_b{string{"FooB"}};
     auto dep = foo.make_dep();
     auto dep2 = std::move(dep);

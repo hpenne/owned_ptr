@@ -14,6 +14,13 @@ struct owned_ptr_error_handler {
         assert(condition);
     }
 
+    // Setting this to false changes behaviour in move operations.
+    // The moved from object will still be valid and the ref count
+    // will not be decremented. This improves performance because
+    // dep_ptr object will not need to be checked for nullptr when
+    // they are de-referenced.
+    // A value of true will set dep_ptr objects to nullptr when
+    // moved from, which is more intuitive but less performant.
     static constexpr bool reset_when_moved_from{true};
 };
 

@@ -77,6 +77,8 @@ TEST(ErrorHandlingNoReset, const_dep_is_moved_from_then_it_is_still_valid) {
     const auto foo = ptr("foo");
     auto dep = foo.make_dep();
     auto dep2{std::move(dep)}; // NOLINT
+    dep = std::move(dep);
+    ASSERT_EQ(2, foo.num_deps());
     use(*dep); // NOLINT
     ASSERT_EQ(foo.num_deps(), 2);
 }

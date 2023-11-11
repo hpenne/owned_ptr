@@ -75,3 +75,72 @@ so this is more memory efficient than `shared_ptr`.
 It is also much faster,
 as it does not use atomics for reference counting.
 It has much better memory safety than `unique_ptr`, and it allows "rule of zero" with forward declared classes.
+
+== Usage
+
+=== Basics
+
+Creation of objects and dependencies:
+
+----
+auto foo1 = make_owned<string>("foo1");
+auto foo2 = owned_ptr<string>{"foo2"s};
+auto foo3 = std::move(foo1); // But copy is not supported
+auto dep1 = foo3.make_dep(); // Creates dependency pointer
+std::cout << *dep1 << " is " << dep1->size() << " chars long\n";
+std::cout << *foo2 << " is " << foo2->size() << " chars long\n";
+----
+
+This uses the same principles as `make_shared` and `make_unique`,
+with forwarding of constructor arguments.
+
+Note that because the object and the ref count and deleter are all allocated inside the same contiguous block on the heap,
+there is no support for creating objects with the following syntax:
+
+----
+auto foo = make_owned<string>{new string{"foo"}}; // Does not compile
+----
+
+=== Memory safety checks
+
+Use of a dependency pointer whose "parent" owned_ptr has been destroyed will cause an assert by default:
+
+----
+auto foo = std::make_optional(owned_ptr<string>{"foo"});
+auto dep = foo.make_dep();
+foo = nullopt;
+*dep; // Fails at runtime
+----
+
+There no way to access a deleted object,
+so no use-after-free is possible.
+
+Note that the standard error handling policy is that this only applies in Debug builds (as with `assert` in general),
+but this is configurable:
+
+=== Configuration
+
+The types have a second template parameter that controls error handling.
+This is defaulted to an error handling policy where usage errors (like use-after-free and used of moved-from pointers) are caught in Debug builds using `assert`,
+but not in Release builds.
+
+This can be modified by using a custom policy:
+
+----
+struct my_error_handler {
+    static void check_condition(bool condition, const char *reason) {
+        MY_ASSERT(condition) << reason;
+    }
+
+    static constexpr bool reset_when_moved_from{true};
+};
+
+auto foo = owned_ptr<string, my_error_handler>{"foo"};
+----
+
+This is highly recommended for secure code, where asserts should not be disabled in Release builds.
+
+Notice also the `reset_when_moved_from` flag.
+Setting this to false will cause moved-from dep_ptr object to still be valid (not nullptr),
+which is perhaps a little less intuitive for some (but still valid C++),
+but increases performance because the objects will no need to be checked for nullptr on access.

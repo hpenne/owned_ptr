@@ -77,6 +77,8 @@ TEST(ErrorHandling, const_dep_is_moved_from_when_dep_is_dereferenced_then_error_
     const auto foo = ptr("foo");
     auto dep = foo.make_dep();
     auto dep2{std::move(dep)}; // NOLINT
+    dep = std::move(dep);
+    ASSERT_EQ(1, foo.num_deps());
     ASSERT_THROW(use(*dep), FailureDetected); // NOLINT
     ASSERT_THROW(use(dep->length()), FailureDetected);
 }
