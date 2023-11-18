@@ -37,23 +37,29 @@ public:
     /// Takes the same parameters as the target type's constructor, moves the arguments,
     /// and constructs the target object in-place.
     template<class... Args>
-    explicit owned_ptr(Args &&... args) : _storage{new char[block_size()]} {
-        new(_storage) Control{owner_marker, &owned_ptr<T, ErrorHandler>::deleter};
-        new(_storage + sizeof(Control)) T{std::forward<Args>(args)...};
+    explicit owned_ptr(Args &&... args) : _storage{reinterpret_cast<char *>(
+                                                           new Block{Control{owner_marker,
+                                                                             &owned_ptr<T, ErrorHandler>::deleter},
+                                                                     T{std::forward<Args>(args)...}})
+    } {
     }
 
     /// Creates a new handle and owned object, by copying an existing object of the target type.
     /// \param object The object to copy.
-    explicit owned_ptr(const T &object) : _storage{new char[block_size()]} {
-        new(_storage) Control{owner_marker, &owned_ptr<T, ErrorHandler>::deleter};
-        new(_storage + sizeof(Control)) T{object};
+    explicit owned_ptr(const T &object) : _storage{reinterpret_cast<char *>(
+                                                           new Block{Control{owner_marker,
+                                                                             &owned_ptr<T, ErrorHandler>::deleter},
+                                                                     T{object}})
+    } {
     }
 
     /// Creates a new handle and owned object, by moving an existing object of the target type.
     /// \param object The object to move from.
-    explicit owned_ptr(T &&object) : _storage{new char[block_size()]} {
-        new(_storage) Control{owner_marker, &owned_ptr<T, ErrorHandler>::deleter};
-        new(_storage + sizeof(Control)) T{std::move(object)};
+    explicit owned_ptr(T &&object) : _storage{reinterpret_cast<char *>(
+                                                      new Block{Control{owner_marker,
+                                                                        &owned_ptr<T, ErrorHandler>::deleter},
+                                                                T{std::move(object)}})
+    } {
     }
 
     /// Copy constructor (deleted)
@@ -132,6 +138,11 @@ private:
         }
     };
 
+    struct Block {
+        Control control;
+        T data;
+    }__attribute__((aligned(256)));
+
     /// This is a bit mask for the most significant bit of the reference count.
     /// It is set when the owned_ptr handle exists.
     static constexpr size_t owner_marker{1ull << (sizeof(size_t) * 8u - 1u)};
@@ -147,7 +158,7 @@ private:
     }
 
     static T &get_target(char *storage) { // NOLINT
-        return *reinterpret_cast<T *>(storage + sizeof(Control));
+        return reinterpret_cast<Block *>(storage)->data;
     }
 
     static Deleter get_deleter(char *storage) {
@@ -156,7 +167,7 @@ private:
 
     static void delete_block(char *storage) {
         get_control(storage).~Control();
-        delete[] storage;
+        delete storage;
     }
 
     static void swap(owned_ptr &lhs, owned_ptr &rhs) {

@@ -120,3 +120,10 @@ TEST(Basics, arrow_const) {
     ASSERT_EQ(42, dep2->get_value());
 }
 
+TEST(Basics, extreme_alignment) {
+    struct Foo{
+        Foo(int a) : a{a} {}
+        int a;
+    }__attribute__((aligned(256)));
+    auto owned = make_owned<Foo>(1);
+}
