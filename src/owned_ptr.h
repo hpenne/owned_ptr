@@ -6,6 +6,7 @@
 #define OWNED_PTR_OWNED_PTR_H
 
 #include <cassert>
+#include <cstdlib>
 #include <memory>
 
 struct owned_ptr_error_handler {
