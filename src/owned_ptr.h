@@ -37,29 +37,23 @@ public:
     /// Takes the same parameters as the target type's constructor, moves the arguments,
     /// and constructs the target object in-place.
     template<class... Args>
-    explicit owned_ptr(Args &&... args) : _storage{reinterpret_cast<char *>(
-                                                           new Block{Control{owner_marker,
-                                                                             &owned_ptr<T, ErrorHandler>::deleter},
-                                                                     T{std::forward<Args>(args)...}})
-    } {
+    explicit owned_ptr(Args &&... args) : _storage{allocate()} {
+        new(_storage) Control{owner_marker, &owned_ptr<T, ErrorHandler>::deleter};
+        new(_storage + control_size()) T{std::forward<Args>(args)...};
     }
 
     /// Creates a new handle and owned object, by copying an existing object of the target type.
     /// \param object The object to copy.
-    explicit owned_ptr(const T &object) : _storage{reinterpret_cast<char *>(
-                                                           new Block{Control{owner_marker,
-                                                                             &owned_ptr<T, ErrorHandler>::deleter},
-                                                                     T{object}})
-    } {
+    explicit owned_ptr(const T &object) : _storage{allocate()} {
+        new(_storage) Control{owner_marker, &owned_ptr<T, ErrorHandler>::deleter};
+        new(_storage + control_size()) T{object};
     }
 
     /// Creates a new handle and owned object, by moving an existing object of the target type.
     /// \param object The object to move from.
-    explicit owned_ptr(T &&object) : _storage{reinterpret_cast<char *>(
-                                                      new Block{Control{owner_marker,
-                                                                        &owned_ptr<T, ErrorHandler>::deleter},
-                                                                T{std::move(object)}})
-    } {
+    explicit owned_ptr(T &&object) : _storage{allocate()} {
+        new(_storage) Control{owner_marker, &owned_ptr<T, ErrorHandler>::deleter};
+        new(_storage + control_size()) T{std::move(object)};
     }
 
     /// Copy constructor (deleted)
@@ -153,12 +147,34 @@ private:
         get_target(storage).~T();
     }
 
+    static constexpr size_t alignment() {
+        return std::alignment_of<T>::value > std::alignment_of<max_align_t>::value ? std::alignment_of<T>::value
+                                                                                   : std::alignment_of<max_align_t>::value;
+    }
+
+    static constexpr size_t control_size() {
+        return sizeof(Control) > std::alignment_of<T>::value ? sizeof(Control) : std::alignment_of<T>::value;
+    }
+
+    static constexpr size_t data_alloc_size() {
+        const auto align = std::alignment_of<max_align_t>::value;
+        return ((sizeof(T) + align - 1) / align) * align;
+    }
+
+    static constexpr size_t block_size() {
+        return control_size() + data_alloc_size();
+    }
+
+    static char* allocate() {
+        return static_cast<char*>(aligned_alloc(alignment(), block_size()));
+    }
+
     static Control &get_control(char *storage) { // NOLINT
         return *reinterpret_cast<Control *>(storage);
     }
 
     static T &get_target(char *storage) { // NOLINT
-        return reinterpret_cast<Block *>(storage)->data;
+        return *reinterpret_cast<T *>(storage + control_size());
     }
 
     static Deleter get_deleter(char *storage) {
@@ -167,14 +183,12 @@ private:
 
     static void delete_block(char *storage) {
         get_control(storage).~Control();
-        delete storage;
+        free(storage);
     }
 
     static void swap(owned_ptr &lhs, owned_ptr &rhs) {
         std::swap(lhs._storage, rhs._storage);
     }
-
-    static size_t block_size() { return sizeof(Control) + sizeof(T); }
 
     size_t &ref_count() const {
         return *reinterpret_cast<size_t *>(_storage);
