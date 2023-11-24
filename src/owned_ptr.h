@@ -22,7 +22,14 @@ struct owned_ptr_error_handler {
     // they are de-referenced.
     // A value of true will set dep_ptr objects to nullptr when
     // moved from, which is more intuitive but less performant.
+#ifndef NDEBUG
+    // Set to nullptr when moved from in Debug builds to catch as
+    // many bugs as possible
     static constexpr bool reset_when_moved_from{true};
+#else
+    // Leave moved-from objects valid in Release builds, for performance
+    static constexpr bool reset_when_moved_from{true};
+#endif
 };
 
 template<typename T, class ErrorHandler>

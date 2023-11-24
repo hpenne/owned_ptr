@@ -143,4 +143,9 @@ This is highly recommended for secure code, where asserts should not be disabled
 Notice also the `reset_when_moved_from` flag.
 Setting this to false will cause moved-from dep_ptr object to still be valid (not nullptr),
 which is perhaps a little less intuitive for some (but still valid C++),
-but increases performance because the objects will no need to be checked for nullptr on access.
+but increases performance because the objects will not need to be checked for nullptr on access.
+
+The default policy sets this flag to `true` in Debug builds,
+but `false` in Release.
+This will catch use-after-move Debug,
+while maximizing performance in Release.
