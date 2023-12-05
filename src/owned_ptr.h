@@ -140,11 +140,6 @@ private:
         }
     };
 
-    struct Block {
-        Control control;
-        T data;
-    }__attribute__((aligned(256)));
-
     /// This is a bit mask for the most significant bit of the reference count.
     /// It is set when the owned_ptr handle exists.
     static constexpr size_t owner_marker{1ull << (sizeof(size_t) * 8u - 1u)};
